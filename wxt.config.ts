@@ -4,8 +4,8 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'extension-boilerplate',
-    description: 'description for manifest.json',
+    name: 'form-extension',
+    description: 'help fill in timesheet',
     host_permissions: ['https://*/*', 'http://*'],
     permissions: ['tabs', 'scripting'],
     content_scripts: [{ matches: ['https://*/*'], js: ['content-scripts/content.js'] }]
