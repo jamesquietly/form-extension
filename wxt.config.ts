@@ -6,6 +6,8 @@ export default defineConfig({
   manifest: {
     name: 'extension-boilerplate',
     description: 'description for manifest.json',
-    host_permissions: ['https://*/*', 'http://*']
+    host_permissions: ['https://*/*', 'http://*'],
+    permissions: ['tabs', 'scripting'],
+    content_scripts: [{ matches: ['https://*/*'], js: ['content-scripts/content.js'] }]
   }
 });
