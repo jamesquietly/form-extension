@@ -100,6 +100,78 @@ const simulateInput = (inputElement: HTMLInputElement, value: string): void => {
   }
 };
 
+/**
+ * Simulates typing into an Angular Material time input field
+ * @param timeInput - The HTML time input element
+ * @param timeString - Time in format 'HH:MM' or 'HH:MM:SS'
+ */
+const simulateTimeInput = (timeInput: HTMLInputElement, timeString: string): void => {
+  try {
+    // First try the direct approach
+    timeInput.value = timeString;
+
+    // Create and dispatch input event
+    const inputEvent = new Event('input', {
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+    timeInput.dispatchEvent(inputEvent);
+
+    // Create and dispatch change event
+    const changeEvent = new Event('change', {
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+    timeInput.dispatchEvent(changeEvent);
+
+    // Try to trigger Angular's change detection
+    const angularInput = timeInput as any;
+    if (angularInput.ngModel) {
+      // If it's an Angular form control
+      const ctrl = angularInput.ngModel.control;
+      if (ctrl) {
+        ctrl.setValue(timeString);
+        ctrl.updateValueAndValidity();
+      }
+    }
+
+    // Also trigger on the form if it exists
+    const form = timeInput.closest('form');
+    if (form) {
+      // Try to find Angular form
+      const ngForm = (form as any).ngForm;
+      if (ngForm && ngForm.control) {
+        ngForm.control.updateValueAndValidity();
+      }
+
+      // Dispatch standard form events
+      form.dispatchEvent(new Event('input', { bubbles: true }));
+      form.dispatchEvent(new Event('change', { bubbles: true }));
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    }
+
+    // If we have a ViewContainerRef, try to trigger change detection
+    if ((window as any).ng) {
+      try {
+        const component = (window as any).ng.getComponent(timeInput);
+        if (component && component.changeDetectorRef) {
+          component.changeDetectorRef.detectChanges();
+        }
+      } catch (e) {
+        console.log('Could not trigger Angular change detection');
+      }
+    }
+  } catch (error) {
+    console.error('Error in simulateTimeInput:', error);
+    // Fallback to direct value assignment
+    timeInput.value = timeString;
+    timeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    timeInput.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+};
+
 type FillParams = {
   hours?: string;
   minutes?: string;
@@ -107,8 +179,6 @@ type FillParams = {
   endTime?: string;
   location?: string;
 };
-
-// funciton that takes string like '05', focus HTMLInputElement, press backspace key twice, then press key for input string
 
 export default defineContentScript({
   matches: ['https://*/*'],
@@ -131,14 +201,14 @@ export default defineContentScript({
       if (startTime) {
         const startInputs = document.querySelectorAll<HTMLInputElement>('input[id^="starttime-"]');
         for (const start of startInputs) {
-          start.value = startTime;
+          simulateTimeInput(start, startTime);
         }
       }
 
       if (endTime) {
         const endInputs = document.querySelectorAll<HTMLInputElement>('input[id^="endtime-"]');
         for (const end of endInputs) {
-          end.value = endTime;
+          simulateTimeInput(end, endTime);
         }
       }
     };
