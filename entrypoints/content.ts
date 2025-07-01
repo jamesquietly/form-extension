@@ -1,100 +1,75 @@
 import { FillMessage, FillResponse, LocationMessage, LocationResponse } from './lib/types';
 
 /**
- * Simulates typing into an input element by first pressing backspace twice and then typing the new value
+ * Simulates typing into an input element with proper event dispatching
  * @param inputElement - The HTML input element to modify
- * @param value - The value to type into the input
+ * @param value - The value to set in the input
  */
 const simulateInput = (inputElement: HTMLInputElement, value: string): void => {
   try {
-    // Focus the input element
+    // Focus and select the input
     inputElement.focus();
-
-    // Select all text in the input to ensure we're replacing the entire value
     inputElement.select();
-
-    // Create and dispatch a keydown event for each character in the value
-    for (let i = 0; i < value.length; i++) {
-      const char = value[i];
-      const keyCode = char.charCodeAt(0);
-
-      // Create and dispatch keydown event
-      const keyDownEvent = new KeyboardEvent('keydown', {
-        key: char,
-        code: `Digit${char}`,
-        keyCode: keyCode,
-        which: keyCode,
-        location: 0,
-        repeat: false,
-        isComposing: false,
-        bubbles: true,
-        cancelable: true,
-        composed: true
-      });
-
-      // Create and dispatch keypress event (some frameworks listen for this)
-      const keyPressEvent = new KeyboardEvent('keypress', {
-        key: char,
-        code: `Digit${char}`,
-        keyCode: keyCode,
-        which: keyCode,
-        charCode: keyCode,
-        location: 0,
-        repeat: false,
-        isComposing: false,
-        bubbles: true,
-        cancelable: true,
-        composed: true
-      });
-
-      // Create input event (Angular listens for this)
-      const inputEvent = new InputEvent('input', {
-        data: char,
-        inputType: 'insertText',
-        isComposing: false,
-        bubbles: true,
-        cancelable: true,
-        composed: true
-      });
-
-      // Dispatch the events in the correct order
-      inputElement.dispatchEvent(keyDownEvent);
-      inputElement.dispatchEvent(keyPressEvent);
-
-      // Update the input value
-      const currentValue = inputElement.value || '';
-      inputElement.value =
-        currentValue.substring(0, inputElement.selectionStart || 0) +
-        char +
-        currentValue.substring(inputElement.selectionEnd || 0);
-
-      // Update selection
-      const newPosition = (inputElement.selectionStart || 0) + 1;
-      inputElement.setSelectionRange(newPosition, newPosition);
-
-      // Dispatch input event after value change
-      inputElement.dispatchEvent(inputEvent);
-    }
-
-    // Finally, trigger a change event
+    
+    // Set the value directly
+    inputElement.value = value;
+    
+    // Create and dispatch input event
+    const inputEvent = new Event('input', {
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+    inputElement.dispatchEvent(inputEvent);
+    
+    // Create and dispatch change event
     const changeEvent = new Event('change', {
       bubbles: true,
       cancelable: true,
       composed: true
     });
     inputElement.dispatchEvent(changeEvent);
-
-    // Also trigger Angular's change detection by dispatching an 'input' event on the form
+    
+    // Try to trigger Angular's change detection if it's an Angular control
+    const angularInput = inputElement as any;
+    if (angularInput.ngModel) {
+      const ctrl = angularInput.ngModel.control;
+      if (ctrl) {
+        ctrl.setValue(value);
+        ctrl.updateValueAndValidity();
+      }
+    }
+    
+    // Also trigger on the form if it exists
     const form = inputElement.closest('form');
     if (form) {
-      const formInputEvent = new Event('input', { bubbles: true });
-      form.dispatchEvent(formInputEvent);
+      // Try to find Angular form
+      const ngForm = (form as any).ngForm;
+      if (ngForm && ngForm.control) {
+        ngForm.control.updateValueAndValidity();
+      }
+      
+      // Dispatch standard form events
+      form.dispatchEvent(new Event('input', { bubbles: true }));
+      form.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    
+    // If we have a ViewContainerRef, try to trigger change detection
+    if ((window as any).ng) {
+      try {
+        const component = (window as any).ng.getComponent(inputElement);
+        if (component && component.changeDetectorRef) {
+          component.changeDetectorRef.detectChanges();
+        }
+      } catch (e) {
+        console.log('Could not trigger Angular change detection');
+      }
+    }
+    
   } catch (error) {
     console.error('Error in simulateInput:', error);
     // Fallback to direct value assignment if simulation fails
     inputElement.value = value;
-    // Trigger input and change events
     inputElement.dispatchEvent(new Event('input', { bubbles: true }));
     inputElement.dispatchEvent(new Event('change', { bubbles: true }));
   }
